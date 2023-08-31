@@ -30,16 +30,14 @@ Quick Start
 bash
 
 ```bash
-kubectl apply -f <path-to-k8s-manifest.yaml>
+kubectl apply -f pod/debugger.yaml --namespace=<namespace_name>
 ```
 
-### Associate Service Account to Pod
+### Associate Service Account to Pod to AWS IAM role
 
-bash
+bakubectl annotate service debugger-sa eks.amazonaws.com/role-arn=<YOUR_IAM_ROLE_ARN> --namespace=<namespace_name>
 
-```bash
-kubectl apply -f <path-to-service-account.yaml>
-```
+
 
 ---
 

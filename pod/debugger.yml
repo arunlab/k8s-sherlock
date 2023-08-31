@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: a-debugger-pod
+  name: sherlock
 spec:
-  serviceAccountName: my-service-account
+  serviceAccountName: sherlock-sa
   containers:
   - name: a-debugger-container
     image: a-debugger:latest
@@ -15,7 +15,5 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: my-service-account
-  annotations:
-    eks.amazonaws.com/role-arn: <YOUR_IAM_ROLE_ARN>
+  name: sherlock-sa
 
