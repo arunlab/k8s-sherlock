@@ -60,7 +60,7 @@ kubectl exec -it <pod-name> -- /bin/bash
 Contributing
 ------------
 
-We love contributions! Please read the [Contributing Guidelines](CONTRIBUTING.md) for more information on how to get involved.
+We love contributions! Please read the [Contributing Guidelines](CONTRIBUTING.MD) for more information on how to get involved.
 
 ---
 
