@@ -30,14 +30,17 @@ Quick Start
 bash
 
 ```bash
-kubectl apply -f pod/debugger.yaml --namespace=<namespace_name>
+kubectl apply -f pod/sherlock.yaml --namespace=<namespace_name>
 ```
 
 ### Associate Service Account to Pod to AWS IAM role
 
-bakubectl annotate service debugger-sa eks.amazonaws.com/role-arn=<YOUR_IAM_ROLE_ARN> --namespace=<namespace_name>
+bash
 
+```bash
+kubectl annotate service shelock-sa eks.amazonaws.com/role-arn=<YOUR_IAM_ROLE_ARN> --namespace=<namespace_name>
 
+```
 
 ---
 
