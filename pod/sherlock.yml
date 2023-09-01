@@ -4,17 +4,11 @@ kind: Pod
 metadata:
   name: sherlock
 spec:
-  serviceAccountName: sherlock-sa
+  serviceAccountName: logging-loki
   containers:
   - name: a-debugger-container
     image: arunsanna/k8s-sherlock:latest
     command: ["/bin/sh"]
     args: ["-c", "while true; do sleep 300; done"]
   restartPolicy: Always
-
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: sherlock-sa
 
