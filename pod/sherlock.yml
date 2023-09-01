@@ -11,4 +11,3 @@ spec:
     command: ["/bin/sh"]
     args: ["-c", "while true; do sleep 300; done"]
   restartPolicy: Always
-
