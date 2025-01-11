@@ -1,5 +1,5 @@
 # Use an official Ubuntu runtime as base image
-FROM ubuntu:noble
+FROM ubuntu:latest
 
 # Set up environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -62,6 +62,14 @@ RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform
 RUN wget https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64 && \
     chmod +x terragrunt_linux_amd64 && \
     mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
+
+# Install kubectl
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    chmod +x kubectl && \
+    mv kubectl /usr/local/bin/kubectl
+
+# Install helm
+RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 # Set entrypoint to bash
 ENTRYPOINT ["/bin/bash"]
