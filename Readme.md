@@ -1,9 +1,22 @@
-# K8s-Sherlock 🕵️‍♂️
+# K8s-Sherlock: Kubernetes Debugging Toolkit
 
-Overview
---------
+A comprehensive debugging and troubleshooting toolkit for Kubernetes environments, packaged in a single container.
 
-K8s-Sherlock is an open-source Kubernetes pod designed for debugging and diagnostics. As a swiss-army knife for your Kubernetes cluster, it comes pre-loaded with a host of tools to help you diagnose issues with network, containers, and more. Developed to expedite the troubleshooting process, K8s-Sherlock is your go-to pod for resolving complex orchestration issues.
+## Included Tools
+
+- **Kubernetes Tools**: kubectl, helm, kustomize, kubectx/kubens, stern
+- **Cluster Exploration**: k9s, kubectl-neat, dive
+- **Security**: trivy, kubeconform
+- **Development**: telepresence
+- **Utilities**: curl, wget, jq, yq, tcpdump, netcat, socat, and more
+
+## Usage
+
+### Run as a container in your cluster
+
+```bash
+kubectl run sherlock --rm -it --image=ghcr.io/yourusername/k8s-sherlock --restart=Never -- bash
+```
 
 ---
 
