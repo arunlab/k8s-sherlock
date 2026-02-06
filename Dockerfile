@@ -101,7 +101,7 @@ RUN /bin/bash -c "export PATH=\"/root/.krew/bin:\$PATH\" && \
 
 # Layer 5: User setup (sherlock user, krew copy, app dir)
 RUN groupadd -r sherlock && useradd -r -g sherlock -m -s /bin/bash sherlock \
-    && cp -r /root/.krew /home/sherlock/.krew \
+    && cp -rL /root/.krew /home/sherlock/.krew \
     && chown -R sherlock:sherlock /home/sherlock/.krew \
     && echo 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"' >> /home/sherlock/.bashrc \
     && mkdir -p /app && chown sherlock:sherlock /app
