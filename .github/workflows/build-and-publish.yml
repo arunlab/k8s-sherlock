@@ -49,21 +49,20 @@ jobs:
             type=sha,format=short
 
       # Build the image locally first (for scanning and testing)
-      # Explicit linux/amd64 ensures correct arch when QEMU+buildx are configured
       - name: Build Docker image locally
         uses: docker/build-push-action@v5
         with:
           context: .
           load: true
-          platforms: linux/amd64
           tags: k8s-sherlock:local
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
       # Validate tools in the built image
+      # ENTRYPOINT is /bin/bash, so pass -c to run commands properly
       - name: Test image tools
         run: |
-          docker run --rm k8s-sherlock:local kubectl version --client
+          docker run --rm k8s-sherlock:local -c "kubectl version --client"
 
       # Run Trivy on the local image (fail on CRITICAL/HIGH)
       - name: Run Trivy vulnerability scanner
