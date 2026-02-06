@@ -7,21 +7,29 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      security-events: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Cache Docker layers
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ github.sha }}
@@ -40,26 +48,48 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
 
-      # Build the image locally first (for scanning)
+      # Build the image locally first (for scanning and testing)
       - name: Build Docker image locally
         uses: docker/build-push-action@v5
         with:
           context: .
-          load: true  # Load the image into Docker's local image store
+          load: true
           tags: k8s-sherlock:local
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
-      # Run Trivy on the local image
+      # Validate tools in the built image
+      - name: Test image tools
+        run: |
+          docker run --rm k8s-sherlock:local kubectl version --client
+
+      # Run Trivy on the local image (fail on CRITICAL/HIGH)
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: 'k8s-sherlock:local'
           format: 'table'
-          exit-code: '0'  # Don't fail the build, just report
+          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+
+      # Run Trivy again for SARIF upload to GitHub Security tab
+      - name: Run Trivy (SARIF)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: 'k8s-sherlock:local'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
 
       # Now login and push to Docker Hub
       - name: Login to Docker Hub
@@ -69,13 +99,14 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Build and push to Docker Hub
+      # Build and push to Docker Hub (multi-arch)
       - name: Build and push Docker image
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=local,src=/tmp/.buildx-cache
