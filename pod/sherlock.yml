@@ -1,19 +1,113 @@
+# =============================================================================
+# K8s Sherlock - Kubernetes Debug Toolkit
+# Namespace, RBAC, and Pod manifest
+# =============================================================================
+
+# --- Namespace ---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sherlock
+  labels:
+    app: sherlock
+    component: debug-toolkit
 ---
+# --- ServiceAccount ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: sherlock-sa
+  namespace: sherlock
+  labels:
+    app: sherlock
+    component: debug-toolkit
 ---
+# --- ClusterRole (read-only cluster-wide access) ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sherlock-role
+  labels:
+    app: sherlock
+    component: debug-toolkit
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - services
+      - configmaps
+      - secrets
+      - events
+      - nodes
+      - namespaces
+      - persistentvolumeclaims
+      - endpoints
+      - serviceaccounts
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - ingresses
+      - networkpolicies
+    verbs: ["get", "list", "watch"]
+---
+# --- ClusterRoleBinding ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sherlock-binding
+  labels:
+    app: sherlock
+    component: debug-toolkit
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sherlock-role
+subjects:
+  - kind: ServiceAccount
+    name: sherlock-sa
+    namespace: sherlock
+---
+# --- Debug Pod ---
 apiVersion: v1
 kind: Pod
 metadata:
   name: sherlock
+  namespace: sherlock
+  labels:
+    app: sherlock
+    component: debug-toolkit
 spec:
+  serviceAccountName: sherlock-sa
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
   containers:
     - name: sherlock
-      image: arunsanna/k8s-sherlock:latest
-      command: ["/bin/sh"]
-      args: ["-c", "while true; do sleep 300; done"]
+      image: arunsanna/k8s-sherlock:1.0.0
+      command: ["sleep", "infinity"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: false
+        capabilities:
+          drop:
+            - ALL
       resources:
         limits:
           cpu: "1"
@@ -26,7 +120,7 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - "echo Hello, Sherlock!"
+            - "kubectl version --client --output=yaml > /dev/null 2>&1"
         initialDelaySeconds: 10
         periodSeconds: 30
       readinessProbe:
@@ -34,12 +128,10 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - "echo Ready!"
+            - "command -v kubectl && command -v helm && command -v stern"
         initialDelaySeconds: 5
         periodSeconds: 10
-  nodeSelector: {}
   tolerations:
-    
     - key: CriticalAddonsOnly
       operator: Exists
       effect: NoSchedule
@@ -52,4 +144,3 @@ spec:
       effect: NoExecute
       tolerationSeconds: 300
   restartPolicy: Always
-
