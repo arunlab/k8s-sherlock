@@ -1,9 +1,18 @@
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
+
+LABEL maintainer="Arun Sanna"
+LABEL org.opencontainers.image.title="k8s-sherlock"
+LABEL org.opencontainers.image.description="Kubernetes debugging and troubleshooting toolkit"
+LABEL org.opencontainers.image.source="https://github.com/arunsanna/k8s-sherlock"
+LABEL org.opencontainers.image.licenses="MPL-2.0"
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install basic tools
+# Auto-populated by docker buildx; falls back for plain docker build
+ARG TARGETARCH
+
+# Layer 1: System packages (apt-get)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-transport-https \
     ca-certificates \
@@ -17,96 +26,95 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     net-tools \
     dnsutils \
     iputils-ping \
-    netcat \
+    netcat-openbsd \
     tcpdump \
     iproute2 \
     jq \
     python3 \
-    python3-pip \
     unzip \
     socat \
     fzf \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install kubectl
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
-    && chmod +x kubectl \
-    && mv kubectl /usr/local/bin/
+# Layer 2: Binary downloads (kubectl, stern, kustomize, yq, kubeconform, dive, telepresence, trivy)
+RUN set -eux; \
+    ARCH="${TARGETARCH:-$(dpkg --print-architecture)}"; \
+    # --- kubectl ---
+    KUBECTL_VERSION="$(curl -L -s https://dl.k8s.io/release/stable.txt)"; \
+    curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl"; \
+    chmod +x kubectl && mv kubectl /usr/local/bin/; \
+    # --- stern ---
+    STERN_VERSION=$(curl -s https://api.github.com/repos/stern/stern/releases/latest | grep tag_name | cut -d '"' -f 4 | cut -c 2-); \
+    curl -L -o stern.tar.gz "https://github.com/stern/stern/releases/latest/download/stern_${STERN_VERSION}_linux_${ARCH}.tar.gz"; \
+    tar -xzf stern.tar.gz stern && chmod +x stern && mv stern /usr/local/bin/; \
+    rm -f stern.tar.gz LICENSE; \
+    # --- kustomize ---
+    curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash; \
+    mv kustomize /usr/local/bin/; \
+    # --- yq ---
+    wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}"; \
+    chmod +x /usr/local/bin/yq; \
+    # --- kubeconform ---
+    KUBECONFORM_VERSION=$(curl -s https://api.github.com/repos/yannh/kubeconform/releases/latest | grep tag_name | cut -d '"' -f 4); \
+    wget -q "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-${ARCH}.tar.gz"; \
+    tar xzf "kubeconform-linux-${ARCH}.tar.gz" kubeconform && mv kubeconform /usr/local/bin/; \
+    rm -f "kubeconform-linux-${ARCH}.tar.gz"; \
+    # --- dive ---
+    DIVE_VERSION=$(curl -s https://api.github.com/repos/wagoodman/dive/releases/latest | grep tag_name | cut -d '"' -f 4); \
+    curl -OL "https://github.com/wagoodman/dive/releases/download/${DIVE_VERSION}/dive_${DIVE_VERSION#v}_linux_${ARCH}.deb"; \
+    dpkg -i "dive_${DIVE_VERSION#v}_linux_${ARCH}.deb"; \
+    rm -f "dive_${DIVE_VERSION#v}_linux_${ARCH}.deb"; \
+    # --- telepresence ---
+    curl -fL "https://app.getambassador.io/download/tel2/linux/${ARCH}/latest/telepresence" -o /usr/local/bin/telepresence; \
+    chmod a+x /usr/local/bin/telepresence; \
+    # --- trivy ---
+    wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor -o /usr/share/keyrings/trivy-archive-keyring.gpg; \
+    echo "deb [signed-by=/usr/share/keyrings/trivy-archive-keyring.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/trivy.list; \
+    apt-get update && apt-get install -y trivy; \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Helm
-RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+# Layer 3: Tools with special installers (helm, k9s, kubectx, krew)
+RUN set -eux; \
+    # --- helm ---
+    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash; \
+    # --- k9s ---
+    curl -sS https://webinstall.dev/k9s | bash; \
+    # --- kubectx/kubens ---
+    git clone https://github.com/ahmetb/kubectx /opt/kubectx; \
+    ln -s /opt/kubectx/kubectx /usr/local/bin/kubectx; \
+    ln -s /opt/kubectx/kubens /usr/local/bin/kubens; \
+    # --- krew ---
+    cd "$(mktemp -d)"; \
+    OS="$(uname | tr '[:upper:]' '[:lower:]')"; \
+    KREW_ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')"; \
+    KREW="krew-${OS}_${KREW_ARCH}"; \
+    curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz"; \
+    tar zxvf "${KREW}.tar.gz"; \
+    ./"${KREW}" install krew; \
+    echo 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"' >> /etc/profile.d/krew.sh; \
+    rm -rf "$(pwd)"
 
-# Install k9s
-RUN curl -sS https://webinstall.dev/k9s | bash
-
-# Install kubectx and kubens
-RUN git clone https://github.com/ahmetb/kubectx /opt/kubectx \
-    && ln -s /opt/kubectx/kubectx /usr/local/bin/kubectx \
-    && ln -s /opt/kubectx/kubens /usr/local/bin/kubens
-
-# Install krew
-RUN set -ex; \
-    cd "$(mktemp -d)" && \
-    OS="$(uname | tr '[:upper:]' '[:lower:]')" && \
-    ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" && \
-    KREW="krew-${OS}_${ARCH}" && \
-    curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz" && \
-    tar zxvf "${KREW}.tar.gz" && \
-    ./"${KREW}" install krew && \
-    echo 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"' >> /etc/profile.d/krew.sh && \
-    echo 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"' >> /root/.bashrc
-
-# Install stern
-RUN curl -L -o stern.tar.gz https://github.com/stern/stern/releases/latest/download/stern_$(curl -s https://api.github.com/repos/stern/stern/releases/latest | grep tag_name | cut -d '"' -f 4 | cut -c 2-)_linux_amd64.tar.gz \
-    && tar -xzf stern.tar.gz \
-    && chmod +x stern \
-    && mv stern /usr/local/bin/ \
-    && rm stern.tar.gz LICENSE
-
-# Install kustomize
-RUN curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash \
-    && mv kustomize /usr/local/bin/
-
-# Install yq
-RUN wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
-    && chmod +x /usr/local/bin/yq
-
-# Install trivy
-RUN wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor -o /usr/share/keyrings/trivy-archive-keyring.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/trivy-archive-keyring.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/trivy.list \
-    && apt-get update \
-    && apt-get install -y trivy \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install kubeconform
-RUN KUBECONFORM_VERSION=$(curl -s https://api.github.com/repos/yannh/kubeconform/releases/latest | grep tag_name | cut -d '"' -f 4) \
-    && wget -q "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
-    && tar xzf kubeconform-linux-amd64.tar.gz \
-    && mv kubeconform /usr/local/bin/ \
-    && rm kubeconform-linux-amd64.tar.gz
-
-# Install kubectl plugins via krew
+# Layer 4: Krew plugins
 RUN /bin/bash -c "export PATH=\"/root/.krew/bin:\$PATH\" && \
     kubectl krew install ctx ns neat"
 
-# Install dive (container image explorer) directly instead of as krew plugin
-RUN DIVE_VERSION=$(curl -s https://api.github.com/repos/wagoodman/dive/releases/latest | grep tag_name | cut -d '"' -f 4) \
-    && ARCH=$(dpkg --print-architecture) \
-    && curl -OL https://github.com/wagoodman/dive/releases/download/${DIVE_VERSION}/dive_${DIVE_VERSION#v}_linux_${ARCH}.deb \
-    && dpkg -i dive_${DIVE_VERSION#v}_linux_${ARCH}.deb \
-    && rm dive_${DIVE_VERSION#v}_linux_${ARCH}.deb
+# Layer 5: User setup (sherlock user, krew copy, app dir)
+RUN groupadd -r sherlock && useradd -r -g sherlock -m -s /bin/bash sherlock \
+    && cp -r /root/.krew /home/sherlock/.krew \
+    && chown -R sherlock:sherlock /home/sherlock/.krew \
+    && echo 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"' >> /home/sherlock/.bashrc \
+    && mkdir -p /app && chown sherlock:sherlock /app
 
-# Make krew available in PATH by default
-ENV PATH="/root/.krew/bin:${PATH}"
+# Switch to non-root user
+USER sherlock
 
-# Install telepresence for local development
-RUN curl -fL https://app.getambassador.io/download/tel2/linux/amd64/latest/telepresence -o /usr/local/bin/telepresence \
-    && chmod a+x /usr/local/bin/telepresence
+# Set krew in PATH for the sherlock user
+ENV PATH="/home/sherlock/.krew/bin:${PATH}"
 
-# Create working directory
 WORKDIR /app
 
-# Set entrypoint to bash
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD kubectl version --client --output=yaml > /dev/null 2>&1 || exit 1
+
 ENTRYPOINT ["/bin/bash"]
