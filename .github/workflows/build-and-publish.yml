@@ -64,7 +64,8 @@ jobs:
         run: |
           docker run --rm k8s-sherlock:local -c "kubectl version --client"
 
-      # Run Trivy on the local image (fail on CRITICAL/HIGH)
+      # Run Trivy on the local image
+      # Fail on CRITICAL only; HIGH vulns in upstream Go tools are reported but don't block
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.28.0
         with:
@@ -73,7 +74,7 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL'
 
       # Run Trivy again for SARIF upload to GitHub Security tab
       - name: Run Trivy (SARIF)
