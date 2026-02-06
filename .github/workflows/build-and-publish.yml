@@ -76,7 +76,7 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL'
 
-      # Run Trivy again for SARIF upload to GitHub Security tab
+      # Run Trivy again for SARIF upload to GitHub Security tab (report only, never fail)
       - name: Run Trivy (SARIF)
         if: always()
         uses: aquasecurity/trivy-action@0.28.0
@@ -84,6 +84,7 @@ jobs:
           image-ref: 'k8s-sherlock:local'
           format: 'sarif'
           output: 'trivy-results.sarif'
+          exit-code: '0'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
