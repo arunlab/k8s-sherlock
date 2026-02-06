@@ -4,7 +4,6 @@ Thank you for considering contributing to K8s-Sherlock! This project thrives due
 
 ## Table of Contents
 
-- [Code of Conduct](#code-of-conduct)
 - [How to Contribute](#how-to-contribute)
 - [Report Bugs](#report-bugs)
 - [Request Features](#request-features)
@@ -12,15 +11,11 @@ Thank you for considering contributing to K8s-Sherlock! This project thrives due
 - [Code Standards](#code-standards)
 - [License](#license)
 
-## Code of Conduct
-
-By participating in this project, you are expected to uphold our [Code of Conduct](CODE_OF_CONDUCT.md). Please read it before contributing.
-
 ## How to Contribute
 
 ### 1. Fork the Repository
 
-Fork the [K8s-Sherlock GitHub repository](https://github.com/VivSoftOrg/k8s-sherlock/tree/develop).
+Fork the [K8s-Sherlock GitHub repository](https://github.com/arunlab/k8s-sherlock).
 
 ### 2. Clone Your Fork
 
@@ -32,7 +27,7 @@ cd k8s-sherlock
 ### 3. Set Up Remote Upstream
 
 ```bash
-git remote add upstream https://github.com/VivSoftOrg/k8s-sherlock.git
+git remote add upstream https://github.com/arunlab/k8s-sherlock.git
 ```
 
 ### 4. Create a New Branch
@@ -48,14 +43,14 @@ Make your changes, keeping in mind the project's code standards.
 ### 6. Commit Your Changes
 
 ```bash
-git commit -m "Implement XYZ feature"
+git commit -m "feat(scope): description of change"
 ```
 
 ### 7. Update Your Branch
 
 ```bash
 git fetch upstream
-git rebase upstream/develop
+git rebase upstream/main
 ```
 
 ### 8. Push Changes to GitHub
@@ -80,14 +75,35 @@ Feature requests are welcome. Open an issue on GitHub to suggest a new feature. 
 
 Reviewing pull requests is another way to contribute. Check the open pull requests and provide feedback.
 
+## Testing
+
+Run the integration test suite to verify the Docker image:
+
+```bash
+./tests/test.sh
+```
+
+The test script builds the image locally and checks that all expected tools are present and functional. Make sure Docker is running before executing.
+
+## Development with Devcontainer
+
+The project includes a [devcontainer](.devcontainer/devcontainer.json) configuration for VS Code / GitHub Codespaces:
+
+1. Open the project in VS Code
+2. When prompted, click **Reopen in Container** (or run `Dev Containers: Reopen in Container` from the command palette)
+3. The container builds from the project's Dockerfile and includes extensions for Kubernetes, Docker, YAML, and ShellCheck
+
+This gives you a fully configured development environment with all tools pre-installed.
+
 ## Code Standards
 
 - Write clean and understandable code.
 - Comment your code where necessary.
 - Update documentation as needed.
+- Shell scripts must pass [ShellCheck](https://www.shellcheck.net/) (`shellcheck scripts/*.sh tests/*.sh`). The ShellCheck VS Code extension is included in the devcontainer.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the project's MIT License.
+By contributing, you agree that your contributions will be licensed under the project's [Mozilla Public License 2.0](LICENSE).
 
 Thank you for contributing to K8s-Sherlock!

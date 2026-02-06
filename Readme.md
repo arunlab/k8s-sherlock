@@ -1,91 +1,102 @@
 # K8s-Sherlock: Kubernetes Debugging Toolkit
 
+[![CI](https://github.com/arunlab/k8s-sherlock/actions/workflows/build-and-publish.yml/badge.svg)](https://github.com/arunlab/k8s-sherlock/actions/workflows/build-and-publish.yml)
+[![Docker Hub](https://img.shields.io/docker/pulls/arunsanna/k8s-sherlock)](https://hub.docker.com/r/arunsanna/k8s-sherlock)
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
+
 A comprehensive debugging and troubleshooting toolkit for Kubernetes environments, packaged in a single container based on Debian slim.
 
 ## Included Tools
 
-- **Kubernetes Tools**: kubectl, helm, kustomize, kubectx/kubens, stern, krew
-- **Cluster Exploration**: k9s, kubectl-neat, dive
-- **Security**: trivy, kubeconform
-- **Development**: telepresence
-- **Networking**: iproute2, iputils-ping, netcat, tcpdump, dnsutils, socat
-- **JSON/YAML Processing**: jq, yq
-- **Utilities**: curl, wget, git, vim, fzf, and more
+| Category                | Tools                                                    |
+| ----------------------- | -------------------------------------------------------- |
+| **Kubernetes**          | kubectl, helm, kustomize, kubectx/kubens, stern, krew    |
+| **Cluster Exploration** | k9s, kubectl-neat, dive                                  |
+| **Security**            | trivy, kubeconform                                       |
+| **Development**         | telepresence                                             |
+| **Networking**          | iproute2, iputils-ping, netcat, tcpdump, dnsutils, socat |
+| **JSON/YAML**           | jq, yq                                                   |
+| **Utilities**           | curl, wget, git, vim, fzf, python3                       |
 
-## Usage
+> **Note:** Tools are installed at their latest versions at image build time. Rebuild the image to pick up newer releases.
 
-### Run as a container in your cluster
-
-```bash
-kubectl run sherlock --rm -it --image=ghcr.io/arunsanna/k8s-sherlock --restart=Never -- bash
-```
-
----
-
-CI/CD Pipeline
---------
-
-The project includes GitHub Actions workflows for:
-* Automated builds on pushes to main branch and tags
-* Container image publishing to GitHub Container Registry
-* Security scanning with Trivy to detect vulnerabilities
-* Layer caching for faster builds
-
-Features
---------
-
-* **Networking Tools**: Comes with `iproute2`, `iputils-ping`, `netcat`, `dnsutils`, `tcpdump`, and `socat`
-* **HTTP Tools**: `curl` and `wget` pre-installed for HTTP requests
-* **Kubernetes Development**: Full suite of K8s tools including kubectl plugins via krew
-* **Interactive Tools**: Terminal-based UIs like k9s and fzf for better productivity
-
----
-
-Quick Start
------------
+## Quick Start
 
 ### Prerequisites
 
-* A Kubernetes cluster up and running
-* kubectl installed and configured
+- A Kubernetes cluster up and running
+- kubectl installed and configured
 
-### Deploy K8s-Sherlock Pod
+### Run as a one-off container in your cluster
+
+```bash
+kubectl run sherlock --rm -it --image=arunsanna/k8s-sherlock --restart=Never -- bash
+```
+
+### Deploy as a persistent pod
+
+First, set up the namespace and RBAC (see `pod/sherlock.yml` for the full manifest including ServiceAccount and Role bindings):
 
 ```bash
 kubectl apply -f pod/sherlock.yml --namespace=<namespace_name>
 ```
 
-### Run Standalone
-
-You can also pull and run the container directly with Docker:
+Then exec into it:
 
 ```bash
-docker run -it --rm ghcr.io/arunsanna/k8s-sherlock
+kubectl exec -it sherlock --namespace=<namespace_name> -- /bin/bash
 ```
 
----
-
-Usage
------
-
-Once the K8s-Sherlock pod is up and running, you can `exec` into it to use the tools.
-
-bash
+### Run standalone with Docker
 
 ```bash
-kubectl exec -it <pod-name> -- /bin/bash
+docker run -it --rm arunsanna/k8s-sherlock
 ```
 
----
+## Architecture
 
-Contributing
-------------
+The image is built on `debian:bookworm-slim` and supports `linux/amd64` and `linux/arm64`.
 
-We love contributions! Please read the [Contributing Guidelines](CONTRIBUTING.MD) for more information on how to get involved.
+## CI/CD Pipeline
 
----
+The project uses a GitHub Actions workflow that:
 
-License
--------
+- Builds on pushes to `main` and version tags (`v*`)
+- Scans the image with Trivy for CRITICAL/HIGH vulnerabilities
+- Publishes to [Docker Hub](https://hub.docker.com/r/arunsanna/k8s-sherlock) (not on PRs)
+- Uses layer caching for faster builds
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+## Security
+
+See [SECURITY.md](SECURITY.md) for vulnerability reporting instructions and security practices.
+
+## Contributing
+
+Contributions are welcome! Please read the [Contributing Guidelines](CONTRIBUTING.MD) for details.
+
+## Troubleshooting
+
+| Problem                                        | Solution                                                                                                               |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Pod has no permissions to list/get resources   | Apply the RBAC manifests in `pod/sherlock.yml` (ServiceAccount, Role, RoleBinding)                                     |
+| Tools not found inside the container           | Verify `$PATH` includes `/usr/local/bin` — run `echo $PATH` inside the pod                                             |
+| Pod stuck in `CrashLoopBackOff`                | Check logs with `kubectl logs sherlock` — the pod requires `command: ["sleep", "infinity"]` or similar to stay running |
+| `kubectl` inside pod returns connection errors | Ensure the ServiceAccount token is mounted and the API server is reachable from the pod network                        |
+
+## Uninstall
+
+Remove the sherlock pod and associated RBAC resources:
+
+```bash
+kubectl delete -f pod/sherlock.yml --namespace=<namespace_name>
+```
+
+To also remove a one-off run:
+
+```bash
+kubectl delete pod sherlock
+```
+
+## License
+
+This project is licensed under the Mozilla Public License 2.0. See the [LICENSE](LICENSE) file for details.

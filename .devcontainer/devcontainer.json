@@ -1,5 +1,22 @@
 {
-  "tasks": {
-    "build": "docker build -t k8s-sherlock:latest ."
-  }
+  "name": "K8s-Sherlock Dev",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "ms-azuretools.vscode-docker",
+        "redhat.vscode-yaml",
+        "timonwong.shellcheck"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "remoteUser": "sherlock",
+  "postCreateCommand": "kubectl version --client || true"
 }
